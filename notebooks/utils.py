@@ -5,17 +5,32 @@ import json
 
 console = Console()
 
-
 def format_message_content(message):
-    """Convert message content to displayable string"""
+    """Convert message content to displayable string.
+
+    The incoming `message` is usually a LangChain message object such as
+    HumanMessage, AIMessage, or ToolMessage. Its shape can vary:
+    - `message.content` may be a plain string, e.g. "Hello"
+    - `message.content` may be a list of content blocks, e.g.
+      [{"type": "text", "text": "Hello"}]
+    - `message.content` may contain tool-use blocks in Anthropic style, e.g.
+      [{"type": "tool_use", "name": "search", "input": {...}, "id": "call_1"}]
+    - `message.tool_calls` may exist separately for OpenAI-style messages,
+      e.g. [{"name": "search", "args": {...}, "id": "call_1"}]
+    - `message.content` may also be some other non-string/non-list value,
+      in which case we fall back to `str(message.content)`.
+    """
     parts = []
     tool_calls_processed = False
-    
-    # Handle main content
+
+    # Handle the main content payload. This is often a plain string.
     if isinstance(message.content, str):
         parts.append(message.content)
     elif isinstance(message.content, list):
-        # Handle complex content like tool calls (Anthropic format)
+        # Handle complex content like content blocks or tool-use blocks.
+        # Typical examples:
+        #   [{"type": "text", "text": "Hello"}]
+        #   [{"type": "tool_use", "name": "search", "input": {"query": "foo"}, "id": "call_1"}]
         for item in message.content:
             if item.get('type') == 'text':
                 parts.append(item['text'])
@@ -25,15 +40,18 @@ def format_message_content(message):
                 parts.append(f"   ID: {item.get('id', 'N/A')}")
                 tool_calls_processed = True
     else:
+        # Fallback for unexpected content shapes.
         parts.append(str(message.content))
-    
-    # Handle tool calls attached to the message (OpenAI format) - only if not already processed
+
+    # Handle tool calls attached to the message in OpenAI-style format.
+    # This is separate from `message.content` and is only used when the
+    # content blocks above did not already process tool-use information.
     if not tool_calls_processed and hasattr(message, 'tool_calls') and message.tool_calls:
         for tool_call in message.tool_calls:
             parts.append(f"\n🔧 Tool Call: {tool_call['name']}")
             parts.append(f"   Args: {json.dumps(tool_call['args'], indent=2)}")
             parts.append(f"   ID: {tool_call['id']}")
-    
+
     return "\n".join(parts)
 
 def format_messages(messages):
