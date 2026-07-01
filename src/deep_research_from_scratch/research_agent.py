@@ -40,7 +40,7 @@ def llm_call(state: ResearcherState):
     """
     return {
         "researcher_messages": [
-            model_with_tools.invoke(
+            model_with_tools.invoke(  
                 [SystemMessage(content=research_agent_prompt)] + state["researcher_messages"]
             )
         ]
